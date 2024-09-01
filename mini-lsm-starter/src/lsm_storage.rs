@@ -107,8 +107,9 @@ impl LsmStorage {
     /// Get a key from the storage. In day 7, this can be further optimized by using a bloom filter.
     ///
     /// 从存储中获取key对应的值. 在第7天时, 可以使用布隆过滤器来进一步优化.
-    pub fn get(&self, _key: &[u8]) -> Result<Option<Bytes>> {
-        unimplemented!()
+    pub fn get(&self, key: &[u8]) -> Result<Option<Bytes>> {
+        let value = self.tables.read().memtable.get(key);
+        Ok(value.filter(|v| !v.is_empty()))
     }
 
     /// Write a batch of data into the storage. Implement in week 2 day 7.
@@ -119,15 +120,15 @@ impl LsmStorage {
     /// Put a key-value pair into the storage by writing into the current memtable.
     ///
     /// 通过写入当前memtable来将key-value对放到存储中.
-    pub fn put(&self, _key: &[u8], _value: &[u8]) -> Result<()> {
-        unimplemented!()
+    pub fn put(&self, key: &[u8], value: &[u8]) -> Result<()> {
+        self.tables.write().memtable.put(key, value)
     }
 
     /// Remove a key from the storage by writing an empty value.
     ///
     /// 通过写入空值从存储中删除1个key.
-    pub fn delete(&self, _key: &[u8]) -> Result<()> {
-        unimplemented!()
+    pub fn delete(&self, key: &[u8]) -> Result<()> {
+        self.put(key, &[])
     }
 
     pub(crate) fn path_of_sst_static(path: impl AsRef<Path>, id: usize) -> PathBuf {
