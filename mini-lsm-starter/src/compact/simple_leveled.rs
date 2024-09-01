@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::lsm_storage::LsmStorageState;
+use crate::lsm_storage::LsmStorageTables;
 
 #[derive(Debug, Clone)]
 pub struct SimpleLeveledCompactionOptions {
@@ -33,7 +33,7 @@ impl SimpleLeveledCompactionController {
     /// Returns `None` if no compaction needs to be scheduled. The order of SSTs in the compaction task id vector matters.
     pub fn generate_compaction_task(
         &self,
-        _snapshot: &LsmStorageState,
+        _snapshot: &LsmStorageTables,
     ) -> Option<SimpleLeveledCompactionTask> {
         unimplemented!()
     }
@@ -47,10 +47,10 @@ impl SimpleLeveledCompactionController {
     /// in your implementation.
     pub fn apply_compaction_result(
         &self,
-        _snapshot: &LsmStorageState,
+        _snapshot: &LsmStorageTables,
         _task: &SimpleLeveledCompactionTask,
         _output: &[usize],
-    ) -> (LsmStorageState, Vec<usize>) {
+    ) -> (LsmStorageTables, Vec<usize>) {
         unimplemented!()
     }
 }

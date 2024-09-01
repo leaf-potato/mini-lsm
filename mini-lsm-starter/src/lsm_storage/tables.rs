@@ -25,7 +25,7 @@ use crate::table::SsTable;
 ///
 /// 表示存储引擎的状态.
 #[derive(Clone)]
-pub struct LsmStorageState {
+pub struct LsmStorageTables {
     /// The current memtable.
     pub memtable: Arc<MemTable>,
     /// Immutable memtables, from latest to earliest.
@@ -39,7 +39,7 @@ pub struct LsmStorageState {
     pub sstables: HashMap<usize, Arc<SsTable>>,
 }
 
-impl LsmStorageState {
+impl LsmStorageTables {
     pub fn create(options: &LsmStorageOptions) -> Self {
         let levels = match &options.compaction_options {
             CompactionOptions::Leveled(LeveledCompactionOptions { max_levels, .. })

@@ -24,7 +24,7 @@ use parking_lot::{Mutex, MutexGuard, RwLock};
 use super::BlockCache;
 use super::CompactionFilter;
 use super::LsmStorageOptions;
-use super::LsmStorageState;
+use super::LsmStorageTables;
 use super::WriteBatchRecord;
 
 use crate::compact::{
@@ -115,11 +115,11 @@ impl MiniLsm {
 
     /// Only call this in test cases due to race conditions
     pub fn force_flush(&self) -> Result<()> {
-        if !self.inner.state.read().memtable.is_empty() {
+        if !self.inner.tables.read().memtable.is_empty() {
             self.inner
-                .force_freeze_memtable(&self.inner.state_lock.lock())?;
+                .force_freeze_memtable(&self.inner.tables_lock.lock())?;
         }
-        if !self.inner.state.read().imm_memtables.is_empty() {
+        if !self.inner.tables.read().imm_memtables.is_empty() {
             self.inner.force_flush_next_imm_memtable()?;
         }
         Ok(())
@@ -132,9 +132,9 @@ impl MiniLsm {
 
 /// The storage interface of the LSM tree.
 pub(crate) struct LsmStorageInner {
-    // 使用读写锁来操作LsmStorage的state
-    pub(crate) state: Arc<RwLock<Arc<LsmStorageState>>>,
-    pub(crate) state_lock: Mutex<()>,
+    // 使用读写锁来操作LsmStorage的tables
+    pub(crate) tables: Arc<RwLock<Arc<LsmStorageTables>>>,
+    pub(crate) tables_lock: Mutex<()>,
 
     path: PathBuf,
     pub(crate) block_cache: Arc<BlockCache>,
@@ -156,7 +156,7 @@ impl LsmStorageInner {
     /// not exist.
     pub(crate) fn open(path: impl AsRef<Path>, options: LsmStorageOptions) -> Result<Self> {
         let path = path.as_ref();
-        let state = LsmStorageState::create(&options);
+        let state = LsmStorageTables::create(&options);
 
         let compaction_controller = match &options.compaction_options {
             CompactionOptions::Leveled(options) => {
@@ -172,8 +172,8 @@ impl LsmStorageInner {
         };
 
         let storage = Self {
-            state: Arc::new(RwLock::new(Arc::new(state))),
-            state_lock: Mutex::new(()),
+            tables: Arc::new(RwLock::new(Arc::new(state))),
+            tables_lock: Mutex::new(()),
             path: path.to_path_buf(),
             block_cache: Arc::new(BlockCache::new(1024)),
             next_sst_id: AtomicUsize::new(1),

@@ -15,7 +15,7 @@ pub use simple_leveled::{
 };
 pub use tiered::{TieredCompactionController, TieredCompactionOptions, TieredCompactionTask};
 
-use crate::lsm_storage::{LsmStorageInner, LsmStorageState};
+use crate::lsm_storage::{LsmStorageInner, LsmStorageTables};
 use crate::table::SsTable;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -48,7 +48,7 @@ pub(crate) enum CompactionController {
 }
 
 impl CompactionController {
-    pub fn generate_compaction_task(&self, snapshot: &LsmStorageState) -> Option<CompactionTask> {
+    pub fn generate_compaction_task(&self, snapshot: &LsmStorageTables) -> Option<CompactionTask> {
         match self {
             CompactionController::Leveled(ctrl) => ctrl
                 .generate_compaction_task(snapshot)
@@ -65,11 +65,11 @@ impl CompactionController {
 
     pub fn apply_compaction_result(
         &self,
-        snapshot: &LsmStorageState,
+        snapshot: &LsmStorageTables,
         task: &CompactionTask,
         output: &[usize],
         in_recovery: bool,
-    ) -> (LsmStorageState, Vec<usize>) {
+    ) -> (LsmStorageTables, Vec<usize>) {
         match (self, task) {
             (CompactionController::Leveled(ctrl), CompactionTask::Leveled(task)) => {
                 ctrl.apply_compaction_result(snapshot, task, output, in_recovery)

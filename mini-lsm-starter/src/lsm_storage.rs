@@ -2,12 +2,12 @@
 
 mod mini_lsm;
 mod options;
-mod state;
+mod tables;
 
 pub(crate) use self::mini_lsm::LsmStorageInner;
 pub use self::mini_lsm::MiniLsm;
 pub use self::options::LsmStorageOptions;
-pub use self::state::LsmStorageState;
+pub use self::tables::LsmStorageTables;
 
 use std::sync::Arc;
 

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::lsm_storage::LsmStorageState;
+use crate::lsm_storage::LsmStorageTables;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LeveledCompactionTask {
@@ -31,7 +31,7 @@ impl LeveledCompactionController {
 
     fn find_overlapping_ssts(
         &self,
-        _snapshot: &LsmStorageState,
+        _snapshot: &LsmStorageTables,
         _sst_ids: &[usize],
         _in_level: usize,
     ) -> Vec<usize> {
@@ -40,18 +40,18 @@ impl LeveledCompactionController {
 
     pub fn generate_compaction_task(
         &self,
-        _snapshot: &LsmStorageState,
+        _snapshot: &LsmStorageTables,
     ) -> Option<LeveledCompactionTask> {
         unimplemented!()
     }
 
     pub fn apply_compaction_result(
         &self,
-        _snapshot: &LsmStorageState,
+        _snapshot: &LsmStorageTables,
         _task: &LeveledCompactionTask,
         _output: &[usize],
         _in_recovery: bool,
-    ) -> (LsmStorageState, Vec<usize>) {
+    ) -> (LsmStorageTables, Vec<usize>) {
         unimplemented!()
     }
 }
