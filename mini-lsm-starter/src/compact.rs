@@ -15,7 +15,7 @@ pub use simple_leveled::{
 };
 pub use tiered::{TieredCompactionController, TieredCompactionOptions, TieredCompactionTask};
 
-use crate::lsm_storage::{LsmStorageInner, LsmStorageTables};
+use crate::lsm_storage::{LsmStorage, LsmStorageTables};
 use crate::table::SsTable;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -107,7 +107,7 @@ pub enum CompactionOptions {
     NoCompaction,
 }
 
-impl LsmStorageInner {
+impl LsmStorage {
     fn compact(&self, _task: &CompactionTask) -> Result<Vec<Arc<SsTable>>> {
         unimplemented!()
     }

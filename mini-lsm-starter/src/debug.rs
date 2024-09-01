@@ -1,6 +1,6 @@
-use crate::lsm_storage::{LsmStorageInner, MiniLsm};
+use crate::lsm_storage::{LsmStorage, MiniLsm};
 
-impl LsmStorageInner {
+impl LsmStorage {
     pub fn dump_structure(&self) {
         let snapshot = self.tables.read();
         if !snapshot.l0_sstables.is_empty() {

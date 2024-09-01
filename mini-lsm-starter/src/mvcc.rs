@@ -11,7 +11,7 @@ use std::{
 
 use parking_lot::Mutex;
 
-use crate::lsm_storage::LsmStorageInner;
+use crate::lsm_storage::LsmStorage;
 
 use self::{txn::Transaction, watermark::Watermark};
 
@@ -54,7 +54,7 @@ impl LsmMvccInner {
         ts.1.watermark().unwrap_or(ts.0)
     }
 
-    pub fn new_txn(&self, inner: Arc<LsmStorageInner>, serializable: bool) -> Arc<Transaction> {
+    pub fn new_txn(&self, inner: Arc<LsmStorage>, serializable: bool) -> Arc<Transaction> {
         unimplemented!()
     }
 }

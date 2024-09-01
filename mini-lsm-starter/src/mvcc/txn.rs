@@ -16,12 +16,12 @@ use parking_lot::Mutex;
 use crate::{
     iterators::{two_merge_iterator::TwoMergeIterator, StorageIterator},
     lsm_iterator::{FusedIterator, LsmIterator},
-    lsm_storage::LsmStorageInner,
+    lsm_storage::LsmStorage,
 };
 
 pub struct Transaction {
     pub(crate) read_ts: u64,
-    pub(crate) inner: Arc<LsmStorageInner>,
+    pub(crate) inner: Arc<LsmStorage>,
     pub(crate) local_storage: Arc<SkipMap<Bytes, Bytes>>,
     pub(crate) committed: Arc<AtomicBool>,
     /// Write set and read set
