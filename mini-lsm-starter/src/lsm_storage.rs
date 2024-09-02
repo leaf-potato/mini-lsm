@@ -111,10 +111,30 @@ impl LsmStorage {
 
     /// Get a key from the storage. In day 7, this can be further optimized by using a bloom filter.
     ///
-    /// 从存储中获取key对应的值. 在第7天时, 可以使用布隆过滤器来进一步优化.
+    /// 从存储中获取key对应的值. 在第7天时, 可以使用布隆过滤器来进一步优化.<br>
+    /// 先从memtable中读, 不存在再从immutable_memtable中读.
     pub fn get(&self, key: &[u8]) -> Result<Option<Bytes>> {
-        let value = self.tables.read().memtable.get(key);
-        Ok(value.filter(|v| !v.is_empty()))
+        let tables = self.tables.read();
+        // find_value的返回值是Option<Option<Bytes>.
+        // 1. 第1层的Option表示是否查找到了key.
+        // 2. 第2层的Option表示查找的key有效.
+        let find_value = |table: &MemTable| {
+            table
+                .get(key)
+                .map(|value| if value.is_empty() { None } else { Some(value) })
+        };
+
+        // 1. 从memtable中查找, 当key值为None时被删.
+        if let Some(value) = find_value(&tables.memtable) {
+            return Ok(value);
+        }
+
+        // 2. memtable没有, 从imm_memtable中查找.
+        tables
+            .imm_memtables
+            .iter()
+            .find_map(|table| find_value(table))
+            .map_or(Ok(None), Ok)
     }
 
     /// Write a batch of data into the storage. Implement in week 2 day 7.
