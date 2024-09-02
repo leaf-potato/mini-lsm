@@ -24,6 +24,7 @@ use crate::compact::{
 };
 use crate::lsm_iterator::{FusedIterator, LsmIterator};
 use crate::manifest::Manifest;
+use crate::mem_table::MemTable;
 use crate::mvcc::LsmMvccInner;
 
 pub type BlockCache = moka::sync::Cache<(usize, usize), Arc<Block>>;
@@ -40,8 +41,12 @@ pub enum CompactionFilter {
 
 /// The storage interface of the LSM tree.
 pub(crate) struct LsmStorage {
-    // 使用读写锁来操作LsmStorage的tables
-    pub(crate) tables: Arc<RwLock<Arc<LsmStorageTables>>>,
+    /// 使用读写锁来操作LsmStorage的tables.
+    ///
+    /// 将tables的类型从Arc<RwLock<<ArcLsmStorageTables>>>
+    /// 修改为Arc<RwLock<LsmStorageTables>>支持能原地修改
+    /// LsmStorageTables里的值, 从而避免拷贝.
+    pub(crate) tables: Arc<RwLock<LsmStorageTables>>,
     pub(crate) tables_lock: Mutex<()>,
 
     path: PathBuf,
@@ -80,7 +85,7 @@ impl LsmStorage {
         };
 
         let storage = Self {
-            tables: Arc::new(RwLock::new(Arc::new(state))),
+            tables: Arc::new(RwLock::new(state)),
             tables_lock: Mutex::new(()),
             path: path.to_path_buf(),
             block_cache: Arc::new(BlockCache::new(1024)),
@@ -119,9 +124,36 @@ impl LsmStorage {
 
     /// Put a key-value pair into the storage by writing into the current memtable.
     ///
-    /// 通过写入当前memtable来将key-value对放到存储中.
+    /// 通过写入当前memtable来将key-value对放到存储中. 当memtable的大小超过
+    /// limit时, 需要将当前memtable冻结为immutable的.
     pub fn put(&self, key: &[u8], value: &[u8]) -> Result<()> {
-        self.tables.write().memtable.put(key, value)
+        let size;
+        {
+            // 1. 将key-value写入到memtable.
+            let tables = self.tables.write();
+            tables.memtable.put(key, value)?;
+            size = tables.memtable.approximate_size();
+        }
+
+        // 2. 尝试冻结memtable, 可能会没达到limit
+        self.try_freeze_memtable(size)?;
+        Ok(())
+    }
+
+    /// 判断当前memtable是否达到limit, 尝试冻结memtable.
+    fn try_freeze_memtable(&self, approximate_size: usize) -> Result<()> {
+        let size_limit = self.options.target_sst_size;
+        if approximate_size >= size_limit {
+            let lock = self.tables_lock.lock();
+            let tables = self.tables.read();
+
+            // 对tables_lock加锁之后, 再次判断, 确保只有1个线程执行.
+            if tables.memtable.approximate_size() >= size_limit {
+                drop(tables); // 释放读锁, 避免加写锁造成死锁
+                self.force_freeze_memtable(&lock)?
+            }
+        }
+        Ok(())
     }
 
     /// Remove a key from the storage by writing an empty value.
@@ -153,9 +185,20 @@ impl LsmStorage {
 
     /// Force freeze the current memtable to an immutable memtable.
     ///
-    /// 强制将当前memtable冻结为不可变memtable.
+    /// 强制将当前memtable冻结为不可变memtable. tables的读写锁在外层必须释放掉,
+    /// 否则会造成死锁. _state_lock_observer确保在外层已加锁, 内部保持有效.
     pub fn force_freeze_memtable(&self, _state_lock_observer: &MutexGuard<'_, ()>) -> Result<()> {
-        unimplemented!()
+        // 1. 创建新的memtable
+        let id = self.next_sst_id();
+        let memtable = Arc::new(MemTable::create(id));
+        {
+            // 2. 对memtable加锁, 将memtable冻结为immutable
+            let mut tables = self.tables.write();
+            let old_memtable = Arc::clone(&tables.memtable);
+            tables.imm_memtables.insert(0, old_memtable);
+            tables.memtable = Arc::clone(&memtable);
+        }
+        Ok(())
     }
 
     /// Force flush the earliest-created immutable memtable to disk

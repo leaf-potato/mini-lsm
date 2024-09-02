@@ -2,8 +2,7 @@
 
 use std::ops::Bound;
 use std::path::Path;
-use std::sync::atomic::AtomicUsize;
-use std::sync::Arc;
+use std::sync::{atomic, Arc};
 
 use anyhow::Result;
 use bytes::Bytes;
@@ -23,7 +22,7 @@ pub struct MemTable {
     map: Arc<SkipMap<Bytes, Bytes>>,
     wal: Option<Wal>,
     id: usize,
-    approximate_size: Arc<AtomicUsize>,
+    approximate_size: Arc<atomic::AtomicUsize>,
 }
 
 /// Create a bound of `Bytes` from a bound of `&[u8]`.
@@ -44,7 +43,7 @@ impl MemTable {
             map: Arc::new(SkipMap::new()),
             wal: None,
             id,
-            approximate_size: Arc::new(AtomicUsize::new(0)),
+            approximate_size: Arc::new(atomic::AtomicUsize::new(0)),
         }
     }
 
@@ -91,8 +90,11 @@ impl MemTable {
     /// 将键值对放到内存表中.<br>
     /// done: 在第1周的第1天, 只需要将键值对放入skipmap中.<br>
     pub fn put(&self, key: &[u8], value: &[u8]) -> Result<()> {
+        let estimated_size = key.len() + value.len(); // key大小也算
         self.map
             .insert(Bytes::copy_from_slice(key), Bytes::copy_from_slice(value));
+        self.approximate_size
+            .fetch_add(estimated_size, atomic::Ordering::Relaxed);
         Ok(())
     }
 
@@ -122,9 +124,10 @@ impl MemTable {
         self.id
     }
 
+    /// 获取当前内存表大致的内存占用, 使用Relaxed可能
+    /// 会导致approximate_size被更新, 但读到旧数据.
     pub fn approximate_size(&self) -> usize {
-        self.approximate_size
-            .load(std::sync::atomic::Ordering::Relaxed)
+        self.approximate_size.load(atomic::Ordering::Relaxed)
     }
 
     /// Only use this function when closing the database
